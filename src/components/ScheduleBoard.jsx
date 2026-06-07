@@ -43,13 +43,22 @@ export function ScheduleBoard() {
   const checkAndAutoReset = useScheduleStore(
     (state) => state.checkAndAutoReset,
   );
+  const fetchInitialData = useScheduleStore((state) => state.fetchInitialData);
+  const subscribeToChanges = useScheduleStore(
+    (state) => state.subscribeToChanges,
+  );
 
   // Check for auto-reset on mount and daily
   useEffect(() => {
-    checkAndAutoReset();
+    fetchInitialData();
+    const unsubscribe = subscribeToChanges();
+    // checkAndAutoReset(); // Disabled auto-reset on mount to prevent refresh-skipping bug
     const interval = setInterval(checkAndAutoReset, 3600000); // Check every hour
-    return () => clearInterval(interval);
-  }, [checkAndAutoReset]);
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
+  }, [checkAndAutoReset, fetchInitialData, subscribeToChanges]);
 
   const handleEndWeek = () => {
     endWeek();
