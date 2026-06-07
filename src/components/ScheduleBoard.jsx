@@ -25,6 +25,9 @@ export function ScheduleBoard() {
   const weekNumber = useScheduleStore((state) => state.weekNumber);
   const startDate = useScheduleStore((state) => state.startDate);
   const endWeek = useScheduleStore((state) => state.endWeek);
+  const isSaving = useScheduleStore((state) => state.isSaving);
+  const isLoading = useScheduleStore((state) => state.isLoading);
+  const lastSync = useScheduleStore((state) => state.lastSync);
 
   const start = new Date(startDate);
   const end = new Date(start);
@@ -44,28 +47,30 @@ export function ScheduleBoard() {
     (state) => state.checkAndAutoReset,
   );
   const fetchInitialData = useScheduleStore((state) => state.fetchInitialData);
-  const subscribeToChanges = useScheduleStore(
-    (state) => state.subscribeToChanges,
-  );
 
   // Check for auto-reset on mount and daily
   useEffect(() => {
     fetchInitialData();
-    const unsubscribe = subscribeToChanges();
-    // checkAndAutoReset(); // Disabled auto-reset on mount to prevent refresh-skipping bug
-    const interval = setInterval(checkAndAutoReset, 3600000); // Check every hour
+    checkAndAutoReset();
+    const interval = setInterval(() => {
+      fetchInitialData(); // Polling for changes from other user
+      checkAndAutoReset();
+    }, 30000); // Check every 30 seconds
     return () => {
       clearInterval(interval);
-      unsubscribe();
     };
-  }, [checkAndAutoReset, fetchInitialData, subscribeToChanges]);
+  }, [checkAndAutoReset, fetchInitialData]);
 
   const handleEndWeek = () => {
     endWeek();
     setShowEndWeekConfirm(false);
   };
 
-  const isEditable = currentUser === activeTab;
+  const handleSwitchUser = () => {
+    setCurrentUser(null);
+  };
+
+  const isEditable = activeTab !== "History";
 
   const goToPreviousDay = () => {
     const currentIndex = DAYS.indexOf(activeDay);
@@ -95,14 +100,61 @@ export function ScheduleBoard() {
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-300 to-cyan-300 bg-clip-text text-transparent">
                 Shared Moments
               </h1>
-              <p className="text-blue-200 mt-1 text-sm sm:text-base font-semibold">
-                Week {weekNumber} ({weekRange})
-              </p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-blue-200 text-sm sm:text-base font-semibold">
+                  Week {weekNumber} ({weekRange})
+                </p>
+                <AnimatePresence>
+                  {isSaving && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1"
+                    >
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1 }}
+                        className="w-2 h-2 border-2 border-emerald-300 border-t-transparent rounded-full"
+                      />
+                      Saving...
+                    </motion.span>
+                  )}
+                  {isLoading && !isSaving && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30"
+                    >
+                      Syncing...
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
-              <p className="text-xs sm:text-sm font-semibold text-white">
-                👤 <span className="text-cyan-300">{currentUser}</span>
-              </p>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex gap-2">
+                <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
+                  <p className="text-xs sm:text-sm font-semibold text-white">
+                    👤 <span className="text-cyan-300">{currentUser}</span>
+                  </p>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSwitchUser}
+                  className="bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-2 rounded-full border border-red-500/30 text-xs font-bold transition-all"
+                  title="Switch User"
+                >
+                  Logout
+                </motion.button>
+              </div>
+              {lastSync && (
+                <p className="text-[10px] text-gray-400 mr-2">
+                  Last synced: {lastSync}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -111,7 +163,7 @@ export function ScheduleBoard() {
       {/* Tab Navigation - User Selection */}
       <div className="w-full px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8">
         <div className="flex gap-2 mb-6 sm:mb-8 flex-wrap justify-center sm:justify-start">
-          {["Lilia", "Abdellah", "History"].map((tab) => (
+          {["Lilia", "Abdallah", "History"].map((tab) => (
             <motion.button
               key={tab}
               whileHover={{ scale: 1.05 }}

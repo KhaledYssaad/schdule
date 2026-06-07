@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Check, Edit2, Save, X, Trash2 } from "lucide-react";
 import { useScheduleStore } from "../store/scheduleStore";
@@ -7,6 +7,15 @@ export function TaskItem({ user, day, task, isEditable }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedActivity, setEditedActivity] = useState(task.activity);
   const [editedTime, setEditedTime] = useState(task.time);
+
+  // Sync with cloud updates when not actively typing
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedActivity(task.activity);
+      setEditedTime(task.time);
+    }
+  }, [task.activity, task.time, isEditing]);
+
   const toggleTask = useScheduleStore((state) => state.toggleTask);
   const updateTask = useScheduleStore((state) => state.updateTask);
   const removeTask = useScheduleStore((state) => state.removeTask);

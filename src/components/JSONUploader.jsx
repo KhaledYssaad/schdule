@@ -61,7 +61,7 @@ export function JSONUploader({ user, onClose }) {
     );
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!jsonData) {
       setError("Please provide JSON data first.");
       return;
@@ -72,14 +72,18 @@ export function JSONUploader({ user, onClose }) {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      importScheduleFromJSON(user, jsonData, selectedDays);
+    try {
+      await importScheduleFromJSON(user, jsonData, selectedDays);
       setIsLoading(false);
       setJsonData(null);
       setSelectedDays(DAYS);
       setError("");
       onClose();
-    }, 500);
+    } catch (err) {
+      console.error("Import failed:", err);
+      setError("Failed to import schedule. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (

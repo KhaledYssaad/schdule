@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist as persistMiddleware } from "zustand/middleware";
-import { supabase } from "../utils/supabaseClient";
+import { jsonBin } from "../utils/jsonBinClient";
 
 const DAYS = [
   "Monday",
@@ -34,199 +34,173 @@ export const useScheduleStore = create(
     (set, get) => ({
       currentUser: null,
       liliaSchedule: initialSchedule(),
-      abdellahSchedule: initialSchedule(),
+      abdallahSchedule: initialSchedule(),
       weekNumber: 1,
       startDate: getMonday(new Date()).toISOString(),
       history: [],
+      isLoading: false,
+      isSaving: false,
+      lastSync: null,
+      lastLocalUpdate: 0, // Timestamp to track when the last local change happened
 
       setCurrentUser: (user) => set({ currentUser: user }),
 
-      // --- Database Operations ---
+      // --- JSONBin Operations ---
 
       fetchInitialData: async () => {
-        const { data: tasks, error: tasksError } = await supabase
-          .from("tasks")
-          .select("*");
-        const { data: history, error: historyError } = await supabase
-          .from("history")
-          .select("*")
-          .order("week_number", { ascending: true });
+        const state = get();
+        // Prevent overwriting if we are currently saving or if a change just happened locally
+        if (state.isLoading || state.isSaving || (Date.now() - state.lastLocalUpdate < 5000)) return;
+        
+        set({ isLoading: true });
+        
+        try {
+          const [liliaData, abdallahData] = await Promise.all([
+            jsonBin.fetchData("Lilia").catch(() => null),
+            jsonBin.fetchData("Abdallah").catch(() => null)
+          ]);
 
-        if (!tasksError && tasks) {
-          const lilia = initialSchedule();
-          const abdellah = initialSchedule();
+          const updates = {};
+          const now = get(); // Get fresh state after async call
 
-          tasks.forEach((task) => {
-            const formattedTask = {
-              id: task.task_id,
-              time: task.time,
-              activity: task.activity,
-              completed: task.completed,
-            };
-            if (task.user_name === "Lilia") {
-              lilia[task.day].push(formattedTask);
-            } else {
-              abdellah[task.day].push(formattedTask);
-            }
-          });
+          // Safety: Don't overwrite if a change happened while fetching
+          if (now.isSaving || (Date.now() - now.lastLocalUpdate < 5000)) return;
 
-          set({ liliaSchedule: lilia, abdellahSchedule: abdellah });
-        }
-
-        if (!historyError && history) {
-          set({ history });
-          if (history.length > 0) {
-            const lastEntry = history[history.length - 1];
-            const lastWeek = lastEntry.week_number;
-            
-            // Calculate current week's start date based on history
-            const lastStartDate = new Date(lastEntry.date);
-            const currentStartDate = new Date(lastStartDate);
-            currentStartDate.setDate(lastStartDate.getDate() + 7);
-
-            set({ 
-              weekNumber: lastWeek + 1,
-              startDate: currentStartDate.toISOString()
-            });
+          if (liliaData && liliaData.schedule) {
+            updates.liliaSchedule = liliaData.schedule;
+            if (liliaData.weekNumber !== undefined) updates.weekNumber = liliaData.weekNumber;
+            if (liliaData.startDate) updates.startDate = liliaData.startDate;
+            if (liliaData.history) updates.history = liliaData.history;
           }
+
+          if (abdallahData && abdallahData.schedule) {
+            updates.abdallahSchedule = abdallahData.schedule;
+            if (updates.weekNumber === undefined || (abdallahData.weekNumber > (updates.weekNumber || 0))) {
+              updates.weekNumber = abdallahData.weekNumber;
+              updates.startDate = abdallahData.startDate;
+              updates.history = abdallahData.history;
+            }
+          }
+
+          if (Object.keys(updates).length > 0) {
+            set(updates);
+          }
+          set({ lastSync: new Date().toLocaleTimeString() });
+        } catch (error) {
+          console.error("Cloud Sync Error:", error);
+        } finally {
+          set({ isLoading: false });
         }
       },
 
-      subscribeToChanges: () => {
-        const channel = supabase
-          .channel("schema-db-changes")
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "tasks" },
-            () => {
-              get().fetchInitialData();
-            },
-          )
-          .subscribe();
+      syncToCloud: async (user) => {
+        set({ isSaving: true, lastLocalUpdate: Date.now() });
+        try {
+          const latestCloudData = await jsonBin.fetchData(user).catch(() => null);
+          const state = get();
+          
+          const data = {
+            schedule: user === "Lilia" ? state.liliaSchedule : state.abdallahSchedule,
+            weekNumber: Math.max(state.weekNumber, latestCloudData?.weekNumber || 0),
+            startDate: state.startDate,
+            history: (state.history.length >= (latestCloudData?.history?.length || 0)) 
+                     ? state.history 
+                     : latestCloudData.history
+          };
 
-        return () => {
-          supabase.removeChannel(channel);
-        };
+          await jsonBin.updateData(user, data);
+          
+          if (latestCloudData && latestCloudData.weekNumber > state.weekNumber) {
+            set({ 
+              weekNumber: latestCloudData.weekNumber,
+              history: latestCloudData.history
+            });
+          }
+
+          set({ lastSync: new Date().toLocaleTimeString() });
+        } catch (error) {
+          console.error(`Error syncing ${user} to cloud:`, error);
+        } finally {
+          set({ isSaving: false });
+        }
       },
 
       toggleTask: async (user, day, taskId) => {
-        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdellahSchedule";
-        const currentTask = get()[scheduleKey][day].find(t => t.id === taskId);
-        
-        if (!currentTask) return;
-
-        const newCompleted = !currentTask.completed;
-
-        // Optimistic update
+        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdallahSchedule";
         set((state) => ({
+          lastLocalUpdate: Date.now(),
           [scheduleKey]: {
             ...state[scheduleKey],
-            [day]: state[scheduleKey][day].map((task) =>
-              task.id === taskId ? { ...task, completed: newCompleted } : task
+            [day]: (state[scheduleKey][day] || []).map((task) =>
+              task.id === taskId ? { ...task, completed: !task.completed } : task
             ),
           },
         }));
-
-        // Database update
-        await supabase
-          .from("tasks")
-          .update({ completed: newCompleted })
-          .match({ user_name: user, day: day, task_id: taskId });
+        await get().syncToCloud(user);
       },
 
       updateTask: async (user, day, taskId, updates) => {
-        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdellahSchedule";
-        
-        // Optimistic update
+        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdallahSchedule";
         set((state) => ({
+          lastLocalUpdate: Date.now(),
           [scheduleKey]: {
             ...state[scheduleKey],
-            [day]: state[scheduleKey][day].map((task) =>
+            [day]: (state[scheduleKey][day] || []).map((task) =>
               task.id === taskId ? { ...task, ...updates } : task
             ),
           },
         }));
-
-        // Database update
-        await supabase
-          .from("tasks")
-          .update({
-            time: updates.time,
-            activity: updates.activity,
-            completed: updates.completed,
-          })
-          .match({ user_name: user, day: day, task_id: taskId });
+        await get().syncToCloud(user);
       },
 
       addTask: async (user, day, task) => {
-        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdellahSchedule";
-        const taskId = Date.now().toString();
+        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdallahSchedule";
+        const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
         const newTask = { ...task, id: taskId, completed: false };
-
-        // Optimistic update
+        
         set((state) => ({
+          lastLocalUpdate: Date.now(),
           [scheduleKey]: {
             ...state[scheduleKey],
-            [day]: [...state[scheduleKey][day], newTask],
+            [day]: [...(state[scheduleKey][day] || []), newTask],
           },
         }));
-
-        // Database insert
-        await supabase.from("tasks").insert([
-          {
-            user_name: user,
-            day: day,
-            task_id: taskId,
-            time: task.time,
-            activity: task.activity,
-            completed: false,
-          },
-        ]);
+        await get().syncToCloud(user);
       },
 
       removeTask: async (user, day, taskId) => {
-        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdellahSchedule";
-
-        // Optimistic update
+        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdallahSchedule";
         set((state) => ({
+          lastLocalUpdate: Date.now(),
           [scheduleKey]: {
             ...state[scheduleKey],
-            [day]: state[scheduleKey][day].filter((task) => task.id !== taskId),
+            [day]: (state[scheduleKey][day] || []).filter((task) => task.id !== taskId),
           },
         }));
-
-        // Database delete
-        await supabase
-          .from("tasks")
-          .delete()
-          .match({ user_name: user, day: day, task_id: taskId });
+        await get().syncToCloud(user);
       },
 
       importScheduleFromJSON: async (user, data, selectedDays) => {
-        const tasksToInsert = [];
-        selectedDays.forEach((day) => {
-          if (data[day]) {
-            data[day].forEach((task, index) => {
-              tasksToInsert.push({
-                user_name: user,
-                day: day,
-                task_id: `${day}-${Date.now()}-${index}`,
+        const scheduleKey = user === "Lilia" ? "liliaSchedule" : "abdallahSchedule";
+        set((state) => {
+          const newSchedule = { ...state[scheduleKey] };
+          selectedDays.forEach((day) => {
+            if (data[day] && Array.isArray(data[day])) {
+              newSchedule[day] = data[day].map((task, index) => ({
+                id: `${day}-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 3)}`,
                 time: task.time || "",
                 activity: task.activity || "",
-                completed: false,
-              });
-            });
-          }
+                completed: !!task.completed,
+              }));
+            }
+          });
+          return { lastLocalUpdate: Date.now(), [scheduleKey]: newSchedule };
         });
-
-        if (tasksToInsert.length > 0) {
-          await supabase.from("tasks").insert(tasksToInsert);
-          get().fetchInitialData();
-        }
+        await get().syncToCloud(user);
       },
 
       getCompletionPercentage: (user, day) => {
-        const schedule = user === "Lilia" ? get().liliaSchedule : get().abdellahSchedule;
+        const schedule = user === "Lilia" ? get().liliaSchedule : get().abdallahSchedule;
         const daySchedule = schedule[day] || [];
         if (daySchedule.length === 0) return 0;
         const completed = daySchedule.filter((task) => task.completed).length;
@@ -238,50 +212,55 @@ export const useScheduleStore = create(
         const liliaCompletion = Math.round(
           DAYS.reduce((sum, day) => sum + state.getCompletionPercentage("Lilia", day), 0) / DAYS.length
         );
-        const abdellahCompletion = Math.round(
-          DAYS.reduce((sum, day) => sum + state.getCompletionPercentage("Abdellah", day), 0) / DAYS.length
+        const abdallahCompletion = Math.round(
+          DAYS.reduce((sum, day) => sum + state.getCompletionPercentage("Abdallah", day), 0) / DAYS.length
         );
 
         const currentStartDate = new Date(state.startDate);
         const nextStartDate = new Date(currentStartDate);
         nextStartDate.setDate(currentStartDate.getDate() + 7);
 
-        // Save to history in DB
-        await supabase.from("history").insert([
+        const newHistory = [
+          ...state.history,
           {
-            week_number: state.weekNumber,
-            lilia_completion: liliaCompletion,
-            abdellah_completion: abdellahCompletion,
+            week: state.weekNumber,
+            liliaCompletion,
+            abdallahCompletion,
             date: new Date(state.startDate).toLocaleDateString(),
           },
-        ]);
+        ];
 
-        // Clear tasks for next week in DB
-        await supabase.from("tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
-
-        set((prevState) => ({
-          weekNumber: prevState.weekNumber + 1,
+        set({
+          lastLocalUpdate: Date.now(),
+          history: newHistory,
+          weekNumber: state.weekNumber + 1,
           startDate: nextStartDate.toISOString(),
           liliaSchedule: initialSchedule(),
-          abdellahSchedule: initialSchedule(),
-        }));
-        
-        get().fetchInitialData();
+          abdallahSchedule: initialSchedule(),
+        });
+
+        await Promise.all([
+          get().syncToCloud("Lilia"),
+          get().syncToCloud("Abdallah")
+        ]);
       },
 
       resetCurrentWeek: async () => {
-        await supabase.from("tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000");
         set({
+          lastLocalUpdate: Date.now(),
           liliaSchedule: initialSchedule(),
-          abdellahSchedule: initialSchedule(),
+          abdallahSchedule: initialSchedule(),
         });
+        await Promise.all([
+          get().syncToCloud("Lilia"),
+          get().syncToCloud("Abdallah")
+        ]);
       },
 
       checkAndAutoReset: () => {
         const state = get();
         const now = new Date();
         const start = new Date(state.startDate);
-        
         if (now.getTime() - start.getTime() > 7 * 24 * 60 * 60 * 1000) {
           state.endWeek();
         }
@@ -291,8 +270,11 @@ export const useScheduleStore = create(
       name: "schedule-storage",
       partialize: (state) => ({ 
         currentUser: state.currentUser,
+        liliaSchedule: state.liliaSchedule,
+        abdallahSchedule: state.abdallahSchedule,
         weekNumber: state.weekNumber,
-        startDate: state.startDate
+        startDate: state.startDate,
+        history: state.history
       }),
     }
   )

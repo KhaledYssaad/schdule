@@ -75,16 +75,16 @@ export function HistoryTab() {
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-xs sm:text-sm font-semibold text-cyan-300">
-                    Abdellah
+                    Abdallah
                   </span>
                   <span className="text-sm sm:text-base font-bold text-white">
-                    {entry.abdellahCompletion}%
+                    {entry.abdallahCompletion}%
                   </span>
                 </div>
                 <div className="w-full bg-white/10 rounded-full h-2 sm:h-3 overflow-hidden border border-white/20">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${entry.abdellahCompletion}%` }}
+                    animate={{ width: `${entry.abdallahCompletion}%` }}
                     transition={{ duration: 0.6, delay: 0.2 }}
                     className="bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-400 h-full rounded-full shadow-lg shadow-cyan-500/50"
                   />

@@ -21,7 +21,7 @@ export function DaySchedule({ user, day, isEditable }) {
   const [newTime, setNewTime] = useState("");
 
   const schedule = useScheduleStore((state) =>
-    user === "Lilia" ? state.liliaSchedule : state.abdellahSchedule,
+    user === "Lilia" ? state.liliaSchedule : state.abdallahSchedule,
   );
   const startDate = useScheduleStore((state) => state.startDate);
   const addTask = useScheduleStore((state) => state.addTask);

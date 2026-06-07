@@ -51,7 +51,7 @@ export function UserSelect() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mt-8 sm:mt-12 max-w-2xl mx-auto">
-          {["Lilia", "Abdellah"].map((user) => (
+          {["Lilia", "Abdallah"].map((user) => (
             <motion.button
               key={user}
               whileHover={{ scale: 1.05, y: -5 }}
