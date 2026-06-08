@@ -1,20 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Save } from "lucide-react";
 import { TaskItem } from "./TaskItem";
 import { DayProgress } from "./DayProgress";
-import { useGetScheduleQuery, useUpdateScheduleMutation } from "../store/apiSlice";
-import { generateId } from "../utils/generateId";
+import { useGetScheduleQuery, useAddActivityMutation } from "../store/apiSlice";
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
 
 export function DaySchedule({ user, day, isEditable }) {
   const [isAdding, setIsAdding] = useState(false);
@@ -22,37 +12,17 @@ export function DaySchedule({ user, day, isEditable }) {
   const [newTime, setNewTime] = useState("");
 
   const { data: schedule } = useGetScheduleQuery(user);
-  const [updateSchedule] = useUpdateScheduleMutation();
+  const [addActivity] = useAddActivityMutation();
   const tasks = (schedule && schedule[day]) || [];
-
-  // Assuming start date is handled elsewhere or not needed for basic task listing. 
-  // If needed, it should be in the Redux store or passed as a prop.
-  // The original code used a `startDate` from store.
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-  };
 
   const handleAdd = () => {
     if (newActivity && newTime && schedule) {
-      const newTask = {
-        id: generateId(),
-        activity: newActivity.trim(),
-        time: newTime.trim(),
-        completed: false,
-        createdAt: new Date().toISOString(),
-      };
-      
-      const updatedSchedule = { 
-        ...schedule,
-        [day]: [...(schedule[day] || []), newTask]
-      };
-      
-      updateSchedule({ user, data: updatedSchedule });
+      addActivity({ 
+        user, 
+        day, 
+        activity: newActivity.trim(), 
+        time: newTime.trim() 
+      });
       
       setNewActivity("");
       setNewTime("");
@@ -103,7 +73,6 @@ export function DaySchedule({ user, day, isEditable }) {
           >
             <TaskItem
               user={user}
-              day={day}
               task={task}
               isEditable={isEditable}
             />

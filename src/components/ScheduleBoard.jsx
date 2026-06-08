@@ -80,6 +80,7 @@ export default function ScheduleBoard() {
       </div>
 
       <AddTaskModal 
+        key={modal.isOpen ? `open-${modal.day}` : 'closed'}
         isOpen={modal.isOpen} 
         onClose={closeModal} 
         user={currentUser} 

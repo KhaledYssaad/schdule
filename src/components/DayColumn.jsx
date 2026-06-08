@@ -15,7 +15,7 @@ export default function DayColumn({ user, day, tasks, isToday, onAddTask, isRead
           <p className="text-sm text-slate-500 italic text-center py-4">No tasks.</p>
         ) : (
           tasks.map(task => (
-            <TaskItem key={task.id} user={user} day={day} task={task} isReadOnly={isReadOnly} />
+            <TaskItem key={task.id} user={user} task={task} isReadOnly={isReadOnly} />
           ))
         )}
       </div>

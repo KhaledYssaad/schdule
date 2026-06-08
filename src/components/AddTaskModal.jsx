@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useGetScheduleQuery, useUpdateScheduleMutation } from '../store/apiSlice'
-import { generateId } from '../utils/generateId'
+import { useState } from 'react'
+import { useGetScheduleQuery, useAddActivityMutation } from '../store/apiSlice'
 import { DAYS } from '../utils/dateHelpers'
 
 export default function AddTaskModal({ isOpen, onClose, user, day }) {
@@ -9,15 +8,7 @@ export default function AddTaskModal({ isOpen, onClose, user, day }) {
   const [toTime, setToTime] = useState('')
   
   const { data: schedule } = useGetScheduleQuery(user, { skip: !user })
-  const [updateSchedule] = useUpdateScheduleMutation()
-
-  useEffect(() => {
-    if (!isOpen) {
-      setActivity('')
-      setFromTime('')
-      setToTime('')
-    }
-  }, [isOpen])
+  const [addActivity] = useAddActivityMutation()
 
   if (!isOpen) return null
 
@@ -44,21 +35,20 @@ export default function AddTaskModal({ isOpen, onClose, user, day }) {
       return
     }
 
-    const newTask = {
-      id: generateId(),
-      activity: activity.trim(),
-      time: `${fromTime} - ${toTime}`,
-      completed: false,
-      createdAt: new Date().toISOString(),
+    try {
+      const result = await addActivity({ 
+        user, 
+        day, 
+        activity: activity.trim(), 
+        time: `${fromTime} - ${toTime}` 
+      }).unwrap()
+      
+      if (result) {
+        onClose()
+      }
+    } catch (err) {
+      alert(`Failed to add task: ${err}`)
     }
-
-    const updatedSchedule = {
-      ...safeSchedule,
-      [day]: [...(safeSchedule[day] || []), newTask],
-    }
-
-    await updateSchedule({ user, data: updatedSchedule })
-    onClose()
   }
 
   return (

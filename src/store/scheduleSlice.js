@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-export const USERS = ['Lilia', 'Abdallah'];
+export const USERS = ['Lilia', 'Abdellah'];
 
 const scheduleSlice = createSlice({
   name: 'schedule',

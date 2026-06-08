@@ -1,67 +1,147 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-
-const BASE_URL = "https://api.jsonbin.io/v3/b";
-
-// Helper to clean keys
-const clean = (val) => (val ? val.replace(/^["']|["']$/g, "") : "");
-
-const ABDALLAH_KEY = clean(import.meta.env.VITE_JSONBIN_ACCESS_KEY_ABDALLAH);
+import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
+import { supabase } from '../lib/supabase';
 
 export const apiSlice = createApi({
-  reducerPath: "api",
-  baseQuery: fetchBaseQuery({ baseUrl: BASE_URL }),
-  tagTypes: ["Schedule"],
+  reducerPath: 'api',
+  baseQuery: fakeBaseQuery(),
+  tagTypes: ['Schedule'],
   endpoints: (builder) => ({
     getSchedule: builder.query({
       queryFn: async (user) => {
-        const binMap = {
-          Lilia: clean(import.meta.env.VITE_JSONBIN_BIN_ID_LILIA),
-          Abdallah: clean(import.meta.env.VITE_JSONBIN_BIN_ID_ABDALLAH),
-        };
-        const binId = binMap[user];
-
-        if (!binId || !ABDALLAH_KEY) return { error: "Missing config" };
-
+        if (!user) {
+          return { data: { Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: [] } };
+        }
         try {
-          const response = await fetch(`${BASE_URL}/${binId}/latest`, {
-            headers: { "X-Access-Key": ABDALLAH_KEY },
-          });
-          const data = await response.json();
-          return { data: data.record };
+          const { data, error } = await supabase
+            .from('activities')
+            .select('*')
+            .eq('owner', user)
+            .order('time');
+
+          if (error) throw error;
+
+          // Transform flat table data into day-grouped object for the UI
+          const transformed = {
+            Sunday: [], Monday: [], Tuesday: [], Wednesday: [], Thursday: [],
+            Friday: [], Saturday: []
+          };
+
+          if (data) {
+            console.log(`Fetched ${data.length} tasks for ${user}`);
+            data.forEach(task => {
+              // Normalize case for comparison
+              const day = task.day.charAt(0).toUpperCase() + task.day.slice(1).toLowerCase();
+              if (transformed[day]) {
+                transformed[day].push({
+                  id: task.id,
+                  activity: task.activity,
+                  time: task.time,
+                  completed: !!task.done,
+                  createdAt: task.created_at
+                });
+              } else {
+                console.warn(`Task ${task.id} has invalid day: ${task.day}`);
+              }
+            });
+          }
+
+          return { data: transformed };
         } catch (error) {
+          console.error('Get Schedule Error:', error);
           return { error: error.message };
         }
       },
-      providesTags: ["Schedule"],
+      providesTags: (result, error, user) => [{ type: 'Schedule', id: user }],
     }),
-    updateSchedule: builder.mutation({
-      queryFn: async ({ user, data }) => {
-        const binMap = {
-          Lilia: clean(import.meta.env.VITE_JSONBIN_BIN_ID_LILIA),
-          Abdallah: clean(import.meta.env.VITE_JSONBIN_BIN_ID_ABDALLAH),
-        };
-        const binId = binMap[user];
 
-        if (!binId || !ABDALLAH_KEY) return { error: "Missing config" };
-
+    addActivity: builder.mutation({
+      queryFn: async ({ user, day, activity, time }) => {
+        if (!user || !day) return { error: 'Missing user or day' };
         try {
-          const response = await fetch(`${BASE_URL}/${binId}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Access-Key": ABDALLAH_KEY,
-            },
-            body: JSON.stringify(data),
-          });
-          const result = await response.json();
-          return { data: result.record };
+          const { data, error } = await supabase
+            .from('activities')
+            .insert([{
+              owner: user,
+              day,
+              activity,
+              time,
+              done: false
+            }])
+            .select();
+
+          if (error) throw error;
+          return { data: data ? data[0] : null };
         } catch (error) {
-          return { error: error.message };
+          console.error('Add Activity Error:', error);
+          return { error: error.message || 'Unknown error occurred' };
         }
       },
-      invalidatesTags: ["Schedule"],
+      invalidatesTags: (result, error, { user }) => [{ type: 'Schedule', id: user }],
+    }),
+
+    toggleActivity: builder.mutation({
+      queryFn: async ({ user, id, done }) => {
+        if (!id) return { error: 'Missing activity ID' };
+        try {
+          const { data, error } = await supabase
+            .from('activities')
+            .update({ done })
+            .eq('id', id);
+
+          if (error) throw error;
+          return { data };
+        } catch (error) {
+          console.error('Toggle Activity Error:', error);
+          return { error: error.message || 'Unknown error occurred' };
+        }
+      },
+      invalidatesTags: (result, error, { user }) => [{ type: 'Schedule', id: user }],
+    }),
+
+    updateActivity: builder.mutation({
+      queryFn: async ({ user, id, activity, time }) => {
+        if (!id) return { error: 'Missing activity ID' };
+        try {
+          const { data, error } = await supabase
+            .from('activities')
+            .update({ activity, time })
+            .eq('id', id);
+
+          if (error) throw error;
+          return { data };
+        } catch (error) {
+          console.error('Update Activity Error:', error);
+          return { error: error.message || 'Unknown error occurred' };
+        }
+      },
+      invalidatesTags: (result, error, { user }) => [{ type: 'Schedule', id: user }],
+    }),
+
+    deleteActivity: builder.mutation({
+      queryFn: async ({ user, id }) => {
+        if (!id) return { error: 'Missing activity ID' };
+        try {
+          const { data, error } = await supabase
+            .from('activities')
+            .delete()
+            .eq('id', id);
+
+          if (error) throw error;
+          return { data };
+        } catch (error) {
+          console.error('Delete Activity Error:', error);
+          return { error: error.message || 'Unknown error occurred' };
+        }
+      },
+      invalidatesTags: (result, error, { user }) => [{ type: 'Schedule', id: user }],
     }),
   }),
 });
 
-export const { useGetScheduleQuery, useUpdateScheduleMutation } = apiSlice;
+export const { 
+  useGetScheduleQuery, 
+  useAddActivityMutation, 
+  useToggleActivityMutation,
+  useUpdateActivityMutation,
+  useDeleteActivityMutation 
+} = apiSlice;

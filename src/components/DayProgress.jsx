@@ -1,10 +1,9 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { useGetScheduleQuery } from "../store/apiSlice";
 import { getDayDate } from "../utils/dateHelpers";
 
 export function DayProgress({ user, day }) {
-  const { data: schedule } = useGetScheduleQuery(user);
+  const { data: schedule } = useGetScheduleQuery(user, { skip: !user });
   const tasks = (schedule && schedule[day]) || [];
   const completed = tasks.filter((t) => t.completed).length;
   const percentage = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);

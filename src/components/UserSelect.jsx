@@ -1,14 +1,14 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 import { useDispatch } from "react-redux";
-import { setCurrentUser } from "../store/scheduleSlice";
+import { setCurrentUser, setIsUserSelected } from "../store/scheduleSlice";
 
-export function UserSelect() {
+export default function UserSelect() {
   const dispatch = useDispatch();
 
   const handleSelect = (user) => {
     dispatch(setCurrentUser(user));
+    dispatch(setIsUserSelected(true));
   };
 
   return (
@@ -52,7 +52,7 @@ export function UserSelect() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mt-8 sm:mt-12 max-w-2xl mx-auto">
-          {["Lilia", "Abdallah"].map((user) => (
+          {["Lilia", "Abdellah"].map((user) => (
             <motion.button
               key={user}
               whileHover={{ scale: 1.05, y: -5 }}

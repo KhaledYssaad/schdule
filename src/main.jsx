@@ -1,13 +1,16 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Provider } from 'react-redux'
-import { store } from './store'
+import { PersistGate } from 'redux-persist/integration/react'
+import { store, persistor } from './store'
 import App from './App'
 import './index.css'
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Provider store={store}>
-      <App />
+      <PersistGate loading={<div className="p-10 text-center text-white">Loading...</div>} persistor={persistor}>
+        <App />
+      </PersistGate>
     </Provider>
   </React.StrictMode>
 )
