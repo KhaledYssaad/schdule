@@ -1,23 +1,25 @@
 import { useState } from 'react'
-import useScheduleStore from '../store/scheduleStore'
-import { DAYS, getCurrentDay } from '../utils/dateHelpers'
+import { useGetScheduleQuery, useUpdateScheduleMutation } from '../store/apiSlice'
 
 export default function TaskItem({ user, day, task, isReadOnly }) {
   const [isEditing, setIsEditing] = useState(false)
   const [activity, setActivity] = useState(task.activity)
   const [time, setTime] = useState(task.time)
   
-  const toggleTask = useScheduleStore(s => s.toggleTask)
-  const deleteTask = useScheduleStore(s => s.deleteTask)
-  const editTask = useScheduleStore(s => s.editTask)
+  const { data: schedule } = useGetScheduleQuery(user)
+  const [updateSchedule] = useUpdateScheduleMutation()
 
-  // Disable past days
-  const dayIndex = DAYS.indexOf(day)
-  const todayIndex = DAYS.indexOf(getCurrentDay())
-  const isPastDay = dayIndex < todayIndex
+  const handleUpdate = (updates) => {
+    if (!schedule) return
+    const updatedSchedule = { ...schedule }
+    updatedSchedule[day] = updatedSchedule[day].map(t => 
+      t.id === task.id ? { ...t, ...updates } : t
+    )
+    updateSchedule({ user, data: updatedSchedule })
+  }
 
   const handleSave = () => {
-    editTask(user, day, task.id, { activity, time })
+    handleUpdate({ activity, time })
     setIsEditing(false)
   }
 
@@ -43,22 +45,27 @@ export default function TaskItem({ user, day, task, isReadOnly }) {
   }
 
   return (
-    <div className={`flex items-center gap-3 p-3 border-b border-slate-700 last:border-0 hover:bg-slate-700 ${isPastDay ? 'opacity-50' : ''}`}>
+    <div className={`flex items-center gap-3 p-3 border-b border-slate-700 last:border-0 hover:bg-slate-700 ${isReadOnly ? 'opacity-50' : ''}`}>
       <input 
         type="checkbox" 
         checked={task.completed}
-        onChange={() => toggleTask(user, day, task.id)}
+        onChange={() => handleUpdate({ completed: !task.completed })}
         className="h-5 w-5 cursor-pointer accent-white"
-        disabled={isReadOnly || isPastDay}
+        disabled={isReadOnly}
       />
       <div className={`flex-grow ${task.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>
         <span className="text-xs font-mono text-slate-400 mr-2">{task.time}</span>
         <span className="text-sm">{task.activity}</span>
       </div>
-      {!isReadOnly && !isPastDay && (
+      {!isReadOnly && (
         <>
           <button onClick={() => setIsEditing(true)} className="text-xs text-slate-500 hover:text-white">Edit</button>
-          <button onClick={() => deleteTask(user, day, task.id)} className="text-xs text-red-500 hover:text-red-300">Delete</button>
+          <button onClick={() => {
+            if (!schedule) return
+            const updatedSchedule = { ...schedule }
+            updatedSchedule[day] = updatedSchedule[day].filter(t => t.id !== task.id)
+            updateSchedule({ user, data: updatedSchedule })
+          }} className="text-xs text-red-500 hover:text-red-300">Delete</button>
         </>
       )}
     </div>

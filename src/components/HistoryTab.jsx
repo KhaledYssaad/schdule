@@ -1,7 +1,8 @@
-import useScheduleStore, { USERS } from '../store/scheduleStore'
+import { useSelector } from 'react-redux';
+import { USERS } from '../store/scheduleSlice';
 
 export default function HistoryTab() {
-  const history = useScheduleStore(s => s.history)
+  const history = useSelector(state => state.schedule.history);
 
   if (history.length === 0) return <p className="p-4 text-gray-500">No history yet.</p>
 

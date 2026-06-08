@@ -1,5 +1,5 @@
 import TaskItem from './TaskItem'
-import ProgressBar from './ProgressBar'
+import { DayProgress } from './DayProgress'
 
 export default function DayColumn({ user, day, tasks, isToday, onAddTask, isReadOnly }) {
   return (
@@ -8,7 +8,7 @@ export default function DayColumn({ user, day, tasks, isToday, onAddTask, isRead
         {day}
       </h3>
       
-      <ProgressBar tasks={tasks} />
+      <DayProgress user={user} day={day} />
       
       <div className="flex-grow overflow-y-auto">
         {tasks.length === 0 ? (

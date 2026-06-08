@@ -1,13 +1,14 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
-import { useScheduleStore } from "../store/scheduleStore";
+import { useDispatch } from "react-redux";
+import { setCurrentUser } from "../store/scheduleSlice";
 
 export function UserSelect() {
-  const setCurrentUser = useScheduleStore((state) => state.setCurrentUser);
+  const dispatch = useDispatch();
 
   const handleSelect = (user) => {
-    setCurrentUser(user);
+    dispatch(setCurrentUser(user));
   };
 
   return (

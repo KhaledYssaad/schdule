@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
-import useScheduleStore from '../store/scheduleStore'
+import { useGetScheduleQuery, useUpdateScheduleMutation } from '../store/apiSlice'
+import { generateId } from '../utils/generateId'
+import { DAYS } from '../utils/dateHelpers'
 
 export default function AddTaskModal({ isOpen, onClose, user, day }) {
   const [activity, setActivity] = useState('')
   const [fromTime, setFromTime] = useState('')
   const [toTime, setToTime] = useState('')
-  const addTask = useScheduleStore(s => s.addTask)
-  const schedules = useScheduleStore(s => s.schedules)
+  
+  const { data: schedule } = useGetScheduleQuery(user, { skip: !user })
+  const [updateSchedule] = useUpdateScheduleMutation()
 
   useEffect(() => {
     if (!isOpen) {
@@ -18,16 +21,19 @@ export default function AddTaskModal({ isOpen, onClose, user, day }) {
 
   if (!isOpen) return null
 
+  // Ensure schedule has all days initialized
+  const safeSchedule = schedule || Object.fromEntries(DAYS.map(d => [d, []]))
+
   // Check if time is occupied
   const isTimeOccupied = (from, to) => {
-    const tasks = schedules[user][day] || []
+    const tasks = safeSchedule[day] || []
     return tasks.some(task => {
       const [tFrom, tTo] = task.time.split(' - ')
       return (from < tTo && to > tFrom)
     })
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!activity.trim() || !fromTime.trim() || !toTime.trim()) return
     if (fromTime >= toTime) {
       alert("Start time must be before end time")
@@ -37,7 +43,21 @@ export default function AddTaskModal({ isOpen, onClose, user, day }) {
       alert("This time slot is already occupied")
       return
     }
-    addTask(user, day, { activity, time: `${fromTime} - ${toTime}` })
+
+    const newTask = {
+      id: generateId(),
+      activity: activity.trim(),
+      time: `${fromTime} - ${toTime}`,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    }
+
+    const updatedSchedule = {
+      ...safeSchedule,
+      [day]: [...(safeSchedule[day] || []), newTask],
+    }
+
+    await updateSchedule({ user, data: updatedSchedule })
     onClose()
   }
 

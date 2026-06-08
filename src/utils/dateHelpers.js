@@ -1,4 +1,4 @@
-export const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 export const getCurrentDay = () => {
   const map = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -15,10 +15,20 @@ export const getWeekLabel = () => {
 
 export const getWeekRange = (date) => {
   const start = new Date(date)
-  start.setDate(date.getDate() - (date.getDay() === 0 ? 6 : date.getDay() - 1))
+  // Adjust to start on Sunday (0)
+  const day = start.getDay()
+  start.setDate(start.getDate() - day)
   start.setHours(0, 0, 0, 0)
   const end = new Date(start)
   end.setDate(start.getDate() + 6)
   end.setHours(23, 59, 59, 999)
   return { start, end }
+}
+
+export const getDayDate = (dayName) => {
+  const range = getWeekRange(new Date())
+  const dayIndex = DAYS.indexOf(dayName)
+  const date = new Date(range.start)
+  date.setDate(date.getDate() + dayIndex)
+  return date
 }

@@ -1,13 +1,6 @@
-import useScheduleStore from '../store/scheduleStore'
-import { getWeekLabel } from '../utils/dateHelpers'
-
 export default function WeekResetButton() {
-  const resetWeek = useScheduleStore(s => s.resetWeek)
-
   const handleReset = () => {
-    if (window.confirm('Are you sure you want to reset the week? This will save the current state to history and clear both schedules.')) {
-      resetWeek(getWeekLabel())
-    }
+    alert('Reset functionality needs re-implementation.');
   }
 
   return (

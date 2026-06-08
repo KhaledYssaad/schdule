@@ -1,29 +1,21 @@
 import { useState } from 'react'
-import useScheduleStore, { USERS } from '../store/scheduleStore'
 import { validateScheduleJSON } from '../utils/validateScheduleJSON'
 
 export default function JSONUploader() {
   const [input, setInput] = useState('')
-  const [user, setUser] = useState(USERS[0])
+  const [user, setUser] = useState('lilia')
   const [status, setStatus] = useState(null)
-  const importSchedule = useScheduleStore(s => s.importSchedule)
 
   const handleImport = () => {
-    const result = validateScheduleJSON(input)
-    if (!result.ok) {
-      setStatus({ type: 'error', message: result.error })
-      return
-    }
-    importSchedule(user, result.data)
-    setStatus({ type: 'success', message: 'Import successful!' })
-    setInput('')
+    alert('Import functionality needs re-implementation.');
   }
 
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200">
       <h2 className="text-xl font-bold mb-4">Import Schedule</h2>
       <select value={user} onChange={e => setUser(e.target.value)} className="mb-4 p-2 border rounded capitalize">
-        {USERS.map(u => <option key={u} value={u}>{u}</option>)}
+        <option value="lilia">Lilia</option>
+        <option value="abdellah">Abdellah</option>
       </select>
       <textarea 
         value={input} 

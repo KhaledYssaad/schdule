@@ -1,12 +1,12 @@
-import useScheduleStore, { USERS } from '../store/scheduleStore'
+import { useDispatch } from 'react-redux'
+import { setCurrentUser, setIsUserSelected, USERS } from '../store/scheduleSlice'
 
 export default function UserSelectionModal() {
-  const setCurrentUser = useScheduleStore(s => s.setCurrentUser)
-  const setIsUserSelected = useScheduleStore(s => s.setIsUserSelected)
+  const dispatch = useDispatch()
 
   const handleSelect = (user) => {
-    setCurrentUser(user)
-    setIsUserSelected(true)
+    dispatch(setCurrentUser(user))
+    dispatch(setIsUserSelected(true))
   }
 
   return (

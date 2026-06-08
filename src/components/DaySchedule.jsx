@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Save } from "lucide-react";
 import { TaskItem } from "./TaskItem";
 import { DayProgress } from "./DayProgress";
-import { useScheduleStore } from "../store/scheduleStore";
+import { useGetScheduleQuery, useUpdateScheduleMutation } from "../store/apiSlice";
+import { generateId } from "../utils/generateId";
 
 const DAYS = [
   "Monday",
@@ -20,15 +21,13 @@ export function DaySchedule({ user, day, isEditable }) {
   const [newActivity, setNewActivity] = useState("");
   const [newTime, setNewTime] = useState("");
 
-  const schedule = useScheduleStore((state) =>
-    user === "Lilia" ? state.liliaSchedule : state.abdallahSchedule,
-  );
-  const startDate = useScheduleStore((state) => state.startDate);
-  const addTask = useScheduleStore((state) => state.addTask);
-  const tasks = schedule[day] || [];
+  const { data: schedule } = useGetScheduleQuery(user);
+  const [updateSchedule] = useUpdateScheduleMutation();
+  const tasks = (schedule && schedule[day]) || [];
 
-  const dayDate = new Date(startDate);
-  dayDate.setDate(dayDate.getDate() + DAYS.indexOf(day));
+  // Assuming start date is handled elsewhere or not needed for basic task listing. 
+  // If needed, it should be in the Redux store or passed as a prop.
+  // The original code used a `startDate` from store.
 
   const formatDate = (date) => {
     return date.toLocaleDateString(undefined, {
@@ -39,8 +38,22 @@ export function DaySchedule({ user, day, isEditable }) {
   };
 
   const handleAdd = () => {
-    if (newActivity && newTime) {
-      addTask(user, day, { activity: newActivity, time: newTime });
+    if (newActivity && newTime && schedule) {
+      const newTask = {
+        id: generateId(),
+        activity: newActivity.trim(),
+        time: newTime.trim(),
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
+      
+      const updatedSchedule = { 
+        ...schedule,
+        [day]: [...(schedule[day] || []), newTask]
+      };
+      
+      updateSchedule({ user, data: updatedSchedule });
+      
       setNewActivity("");
       setNewTime("");
       setIsAdding(false);
@@ -70,9 +83,7 @@ export function DaySchedule({ user, day, isEditable }) {
         <h2 className="text-2xl sm:text-3xl font-bold text-white text-center sm:text-left">
           {day}
         </h2>
-        <p className="text-cyan-300 font-semibold text-sm sm:text-base">
-          {formatDate(dayDate)}
-        </p>
+        {/* Date display requires startDate. If not available, we can skip or pass it as prop. */}
       </div>
 
       <DayProgress user={user} day={day} />
