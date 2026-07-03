@@ -73,6 +73,33 @@ export const apiSlice = createApi({
       providesTags: (result, error, user) => [{ type: "Schedule", id: user }],
     }),
 
+    getWeeklyHistory: builder.query({
+      queryFn: async () => {
+        try {
+          const { data, error } = await supabase
+            .from("weekly_history")
+            .select("*")
+            .order("week_start", { ascending: false });
+
+          if (error) throw error;
+          return { data: data || [] };
+        } catch (error) {
+          const message = error?.message || "";
+          if (
+            message.includes("does not exist") ||
+            message.includes("relation") ||
+            message.includes("column")
+          ) {
+            return { data: [] };
+          }
+
+          console.error("Get Weekly History Error:", error);
+          return { error: message || "Unknown error occurred" };
+        }
+      },
+      providesTags: [{ type: "Schedule", id: "history" }],
+    }),
+
     addActivity: builder.mutation({
       queryFn: async ({
         user,
@@ -178,6 +205,7 @@ export const apiSlice = createApi({
 
 export const {
   useGetScheduleQuery,
+  useGetWeeklyHistoryQuery,
   useAddActivityMutation,
   useToggleActivityMutation,
   useUpdateActivityMutation,
