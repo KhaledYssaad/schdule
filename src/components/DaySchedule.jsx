@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Save } from "lucide-react";
-import { TaskItem } from "./TaskItem";
+import TaskItem from "./TaskItem";
 import { DayProgress } from "./DayProgress";
 import { useGetScheduleQuery, useAddActivityMutation } from "../store/apiSlice";
-
 
 export function DaySchedule({ user, day, isEditable }) {
   const [isAdding, setIsAdding] = useState(false);
   const [newActivity, setNewActivity] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newDoing, setNewDoing] = useState("");
   const [newTime, setNewTime] = useState("");
 
   const { data: schedule } = useGetScheduleQuery(user);
@@ -17,14 +18,18 @@ export function DaySchedule({ user, day, isEditable }) {
 
   const handleAdd = () => {
     if (newActivity && newTime && schedule) {
-      addActivity({ 
-        user, 
-        day, 
-        activity: newActivity.trim(), 
-        time: newTime.trim() 
+      addActivity({
+        user,
+        day,
+        activity: newActivity.trim(),
+        description: newDescription.trim(),
+        doing: newDoing.trim(),
+        time: newTime.trim(),
       });
-      
+
       setNewActivity("");
+      setNewDescription("");
+      setNewDoing("");
       setNewTime("");
       setIsAdding(false);
     }
@@ -71,11 +76,7 @@ export function DaySchedule({ user, day, isEditable }) {
             }}
             transition={{ delay: index * 0.04 }}
           >
-            <TaskItem
-              user={user}
-              task={task}
-              isEditable={isEditable}
-            />
+            <TaskItem user={user} task={task} isReadOnly={!isEditable} />
           </motion.div>
         ))}
 
@@ -100,6 +101,19 @@ export function DaySchedule({ user, day, isEditable }) {
                   placeholder="Activity name"
                   value={newActivity}
                   onChange={(e) => setNewActivity(e.target.value)}
+                  className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-cyan-400"
+                />
+                <textarea
+                  placeholder="Description"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-cyan-400 min-h-[70px]"
+                />
+                <input
+                  type="text"
+                  placeholder="Doing"
+                  value={newDoing}
+                  onChange={(e) => setNewDoing(e.target.value)}
                   className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-cyan-400"
                 />
                 <div className="flex gap-2">
